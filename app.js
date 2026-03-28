@@ -19,20 +19,19 @@ async function searchScores() {
 
     // 建立搜尋條件 (q)
     // 限制檔案類型為 PDF, GDoc, PNG, JPG
-   let queryParts = [
-        "trashed = false",
-        "(mimeType = 'application/pdf' or mimeType = 'application/vnd.google-apps.document' or mimeType = 'image/png' or mimeType = 'image/jpeg' or mimeType = 'image/jpg')"
-    ];
+  let queryParts = [
+    "trashed = false",
+    "'10ZuF87OUmjYRJphLWbGcpIlEUyX1ryWt' in parents", // 限制在你的 Folder ID
+    "(mimeType = 'application/pdf' or mimeType = 'image/jpeg' or mimeType = 'image/png')"
+];
 
-    if (songName) queryParts.push(`name contains '${songName}'`);
-    if (songKey) queryParts.push(`name contains '${songKey}'`);
-    if (lyrics) queryParts.push(`fullText contains '${lyrics}'`);
+// 先用簡單的名稱搜尋測試，確保存取通暢
+if (songName) queryParts.push(`name contains '${songName}'`);
 
-    const q = queryParts.join(' and ');
-    
-    // 修正 URL：加入 includeItemsFromAllDrives 與 supportsAllDrives
-    // 這能解決部分權限導致的 403/404
-    const url = `https://www.googleapis.com/drive/v3/files?key=${API_KEY}&q=${encodeURIComponent(q)}&fields=files(id,name,mimeType)&pageSize=50&includeItemsFromAllDrives=true&supportsAllDrives=true`;
+const q = queryParts.join(' and ');
+
+// URL 必須加入 supportsAllDrives=true
+const url = `https://www.googleapis.com/drive/v3/files?key=${API_KEY}&q=${encodeURIComponent(q)}&fields=files(id,name,mimeType)&pageSize=50&includeItemsFromAllDrives=true&supportsAllDrives=true`;
 
     try {
         const response = await fetch(url);
