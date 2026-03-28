@@ -1,0 +1,15 @@
+{
+    "name": "YLGC 樂譜搜尋系統",
+    "short_name": "YLGC 樂譜",
+    "start_url": "./index.html",
+    "display": "standalone",
+    "background_color": "#f5f7fa",
+    "theme_color": "#4A90E2",
+    "icons": [
+        {
+            "src": "https://cdn-icons-png.flaticon.com/512/3281/3281136.png", 
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
