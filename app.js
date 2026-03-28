@@ -19,62 +19,33 @@ async function searchScores() {
 
     // 建立搜尋條件 (q)
     // 限制檔案類型為 PDF, GDoc, PNG, JPG
-    let queryParts = [
-        "trashed=false",
-        "(mimeType='application/pdf' or mimeType='application/vnd.google-apps.document' or mimeType='image/png' or mimeType='image/jpeg')"
+   let queryParts = [
+        "trashed = false",
+        "(mimeType = 'application/pdf' or mimeType = 'application/vnd.google-apps.document' or mimeType = 'image/png' or mimeType = 'image/jpeg' or mimeType = 'image/jpg')"
     ];
 
-    // 根據輸入動態加入條件
     if (songName) queryParts.push(`name contains '${songName}'`);
-    if (songKey) queryParts.push(`name contains '${songKey}'`); // 假設調性寫在檔名中
+    if (songKey) queryParts.push(`name contains '${songKey}'`);
     if (lyrics) queryParts.push(`fullText contains '${lyrics}'`);
 
     const q = queryParts.join(' and ');
     
-    // Google Drive API 請求網址
-    // 注意：如果是純前端使用 API Key，目標資料夾及檔案必須設為「知道連結的人均可檢視」
-    const url = `https://www.googleapis.com/drive/v3/files?key=${API_KEY}&q=${encodeURIComponent(q)}&fields=files(id,name,mimeType)&pageSize=50`;
+    // 修正 URL：加入 includeItemsFromAllDrives 與 supportsAllDrives
+    // 這能解決部分權限導致的 403/404
+    const url = `https://www.googleapis.com/drive/v3/files?key=${API_KEY}&q=${encodeURIComponent(q)}&fields=files(id,name,mimeType)&pageSize=50&includeItemsFromAllDrives=true&supportsAllDrives=true`;
 
     try {
         const response = await fetch(url);
         const data = await response.json();
-
-        loadingDiv.classList.add('hidden');
-
-        if (data.error) {
-            console.error('API 錯誤:', data.error);
-            resultsDiv.innerHTML = `<p style="color:red;">搜尋發生錯誤，請檢查設定。</p>`;
-            return;
-        }
-
-        const files = data.files || [];
         
-        if (files.length === 0) {
-            resultsDiv.innerHTML = '<p>找不到符合的樂譜。</p>';
+        if (data.error) {
+            console.error('詳細錯誤資訊:', data.error);
+            // 如果看到 403 "The domain policy has disabled..." 則代表 API key 限制有誤
+            resultsDiv.innerHTML = `<p style="color:red;">錯誤代碼 ${data.error.code}: ${data.error.message}</p>`;
             return;
         }
-
-        files.forEach(file => {
-            const item = document.createElement('div');
-            item.className = 'result-item';
-            
-            // 判斷檔案類型顯示不同小圖示
-            let typeIcon = '📄';
-            if (file.mimeType.includes('image')) typeIcon = '🖼️';
-            if (file.mimeType.includes('document')) typeIcon = '📝';
-
-            item.innerHTML = `<span>${typeIcon} ${file.name}</span>`;
-            
-            // 點擊後開啟覆蓋層
-            item.onclick = () => openPreview(file.id);
-            resultsDiv.appendChild(item);
-        });
-
-    } catch (error) {
-        loadingDiv.classList.add('hidden');
-        resultsDiv.innerHTML = '<p style="color:red;">網路連線錯誤。</p>';
-        console.error(error);
-    }
+        // ... 後續顯示邏輯 ...
+    } catch (e) { /* ... */ }
 }
 
 function openPreview(fileId) {
