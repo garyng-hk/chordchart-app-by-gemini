@@ -1,29 +1,25 @@
-// 設定區
-const JSON_FILE_ID = '1HurtrFGqugzTdy5ghNNISRdM2TEzAl1U/view?usp=drive_link'; 
-const API_KEY = 'AIzaSyDMjNzzDtquOzE-WGUQ-X01wWEOQq5lUKE'; 
-
 let ALL_SCORES = [];
 
-// 修改 app.js 的 window.onload 部分
+// 頁面初始化：直接讀取 GitHub 上的 scores.json
 window.onload = async () => {
     const loadingDiv = document.getElementById('loading');
     loadingDiv.classList.remove('hidden');
-    loadingDiv.innerText = "正在同步本地樂譜清單...";
+    loadingDiv.innerText = "正在同步樂譜清單...";
 
-    // 直接讀取 GitHub 上的 scores.json
+    // 直接讀取同目錄下的索引檔
     const url = './scores.json'; 
     
     try {
         const response = await fetch(url);
-        if (!response.ok) throw new Error('找不到 scores.json 檔案');
+        if (!response.ok) throw new Error('找不到 scores.json');
         
         ALL_SCORES = await response.json();
         
         loadingDiv.classList.add('hidden');
         console.log("成功載入 " + ALL_SCORES.length + " 首樂譜");
     } catch (e) {
-        loadingDiv.innerText = "讀取失敗：請確保 scores.json 已上傳至 GitHub。";
-        console.error(e);
+        loadingDiv.innerText = "讀取失敗：請確保 scores.json 已上傳至 GitHub 根目錄。";
+        console.error("錯誤詳情:", e);
     }
 };
 
@@ -39,9 +35,10 @@ function searchScores() {
         return;
     }
 
-    // 本地快速篩選
+    // 本地搜尋邏輯
     const filtered = ALL_SCORES.filter(item => {
         const nameMatch = songName ? item.n.toLowerCase().includes(songName) : true;
+        // 假設 Key 寫在檔名中，例如 "Amazing Grace (C).pdf"
         const keyMatch = songKey ? item.n.toUpperCase().includes(songKey) : true;
         return nameMatch && keyMatch;
     });
@@ -51,7 +48,6 @@ function searchScores() {
         return;
     }
 
-    // 顯示結果
     filtered.forEach(file => {
         const div = document.createElement('div');
         div.className = 'result-item';
@@ -73,7 +69,7 @@ function openPreview(fileId, mimeType) {
     const modal = document.getElementById('previewModal');
     const iframe = document.getElementById('previewFrame');
     
-    // 根據格式選擇預覽方式
+    // 預覽連結
     if (mimeType.includes('document')) {
         iframe.src = `https://docs.google.com/document/d/${fileId}/preview`;
     } else {
