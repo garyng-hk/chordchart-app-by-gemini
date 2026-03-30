@@ -1,4 +1,4 @@
-let ALL_SCORES = [];
+[let ALL_SCORES = [];
 
 // 頁面初始化：直接讀取 GitHub 上的 scores.json
 window.onload = async () => {
@@ -88,4 +88,4 @@ function closePreview() {
     document.getElementById('previewModal').classList.add('hidden');
     document.getElementById('previewFrame').src = '';
     document.body.style.overflow = 'auto';
-}
+]
