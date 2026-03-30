@@ -4,22 +4,25 @@ const API_KEY = 'AIzaSyDMjNzzDtquOzE-WGUQ-X01wWEOQq5lUKE';
 
 let ALL_SCORES = [];
 
-// 頁面初始化：下載索引檔
+// 修改 app.js 的 window.onload 部分
 window.onload = async () => {
     const loadingDiv = document.getElementById('loading');
     loadingDiv.classList.remove('hidden');
-    loadingDiv.innerText = "正在同步樂譜清單...";
+    loadingDiv.innerText = "正在同步本地樂譜清單...";
 
-    const url = `https://www.googleapis.com/drive/v3/files/${JSON_FILE_ID}?alt=media&key=${API_KEY}`;
+    // 直接讀取 GitHub 上的 scores.json
+    const url = './scores.json'; 
     
     try {
         const response = await fetch(url);
-        if (!response.ok) throw new Error('無法讀取索引檔');
+        if (!response.ok) throw new Error('找不到 scores.json 檔案');
+        
         ALL_SCORES = await response.json();
+        
         loadingDiv.classList.add('hidden');
-        console.log(`成功載入 ${ALL_SCORES.length} 首樂譜`);
+        console.log("成功載入 " + ALL_SCORES.length + " 首樂譜");
     } catch (e) {
-        loadingDiv.innerText = "同步失敗，請檢查 scores.json 權限。";
+        loadingDiv.innerText = "讀取失敗：請確保 scores.json 已上傳至 GitHub。";
         console.error(e);
     }
 };
