@@ -4,25 +4,29 @@ let ALL_SCORES = [];
 window.onload = async () => {
     const loadingDiv = document.getElementById('loading');
     loadingDiv.classList.remove('hidden');
-    loadingDiv.innerText = "正在同步樂譜清單...";
+    loadingDiv.innerText = "正在讀取樂譜清單...";
 
-    // 直接讀取同目錄下的索引檔
-    const url = './scores.json'; 
+    // 使用絕對路徑，避免相對路徑的誤判
+    const url = 'https://app.ylgcmusic.org/scores.json'; 
     
     try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('找不到 scores.json');
+        // 加入快取控制，確保每次都讀取最新版
+        const response = await fetch(url, { cache: "no-store" }); 
+        
+        if (!response.ok) {
+            throw new Error(`HTTP 錯誤! 狀態碼: ${response.status}`);
+        }
         
         ALL_SCORES = await response.json();
         
         loadingDiv.classList.add('hidden');
         console.log("成功載入 " + ALL_SCORES.length + " 首樂譜");
     } catch (e) {
-        loadingDiv.innerText = "讀取失敗：請確保 scores.json 已上傳至 GitHub 根目錄。";
+        // 將詳細錯誤印在畫面上，方便我們診斷
+        loadingDiv.innerText = `讀取失敗: ${e.message}`;
         console.error("錯誤詳情:", e);
     }
 };
-
 function searchScores() {
     const songName = document.getElementById('songName').value.trim().toLowerCase();
     const songKey = document.getElementById('songKey').value.trim().toUpperCase();
