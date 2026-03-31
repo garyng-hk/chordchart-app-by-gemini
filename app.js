@@ -8,16 +8,24 @@ window.onload = async () => {
     const loadingDiv = document.getElementById('loading');
     if (loadingDiv) loadingDiv.classList.remove('hidden');
 
-    const url = `./scores.json?v=${new Date().getTime()}`; 
+    // 1. 指向 Google Drive 上的 scores.json 檔案 ID
+    const JSON_FILE_ID = '你的_scores.json_檔案ID'; 
+    const API_KEY = '你的_API_KEY'; 
+
+    // 2. 使用 Google API 的媒體讀取網址，並加上時間戳記防止快取
+    const url = `https://www.googleapis.com/drive/v3/files/${JSON_FILE_ID}?alt=media&key=${API_KEY}&t=${new Date().getTime()}`;
     
     try {
         const response = await fetch(url);
-        if (!response.ok) throw new Error('無法讀取索引檔');
+        if (!response.ok) throw new Error('讀取雲端索引失敗');
+        
         const textData = await response.text();
         ALL_SCORES = JSON.parse(textData.replace(/^\uFEFF/, "").trim());
+        
         if (loadingDiv) loadingDiv.classList.add('hidden');
+        console.log("✅ 已從雲端硬碟同步 " + ALL_SCORES.length + " 首樂譜");
     } catch (e) {
-        if (loadingDiv) loadingDiv.innerText = "連線異常，請重新整理。";
+        if (loadingDiv) loadingDiv.innerText = "自動同步失敗，請檢查網路。";
         console.error(e);
     }
 };
