@@ -1,7 +1,7 @@
 let ALL_SCORES = [];
 
 // 1. 這裡貼上你剛剛複製的「網頁應用程式 URL」
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzCRQPEetqOKRiCXJLr1778rF67gW7AMFtY8SKWJ9krrTCSC4QTf6wjHMoMhaMYeQk6/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz2_IH_-CFmlepaA44Bw6JJ8FM75Hd6VQ-gB5MLxS7RfrSYoUc3rRCFaaIZjbbDLs9F/exec';
 
 window.onload = async () => {
     const loadingDiv = document.getElementById('loading');
