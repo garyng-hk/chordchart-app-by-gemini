@@ -43,22 +43,27 @@ function searchScores() {
     }
 // 在本地數據中進行篩選
     const filtered = ALL_SCORES.filter(item => {
-        // 1. 歌名比對：只要包含該字串就算符合 (寬鬆比對)
+        // 1. 先處理檔名：把副檔名 (如 .pdf, .docx) 拿掉，只拿主檔名來比對
+        // 這樣搜尋 C 的時候，就不會被 .docx 的 c 干擾
+        const fileNameWithoutExt = item.n.replace(/\.[^/.]+$/, "");
+        
+        // 2. 歌名比對：維持寬鬆 (只要包含就中)
         const nameMatch = songName ? item.n.toLowerCase().includes(songName) : true;
         
-        // 2. 調性 (Key) 比對：精準比對，避免 "C" 去匹配到 "docx" 或 "chord"
+        // 3. 調性 (Key) 比對：精準搜尋
         let keyMatch = true;
         if (songKey) {
-            // 將輸入的 Key (如 C#) 的特殊符號做處理，避免語法錯誤
+            // 處理特殊字元 (如 C#)
             const escapedKey = songKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             
-            // 建立精準搜尋規則：
-            // (^|[^a-zA-Z])  : 代表 Key 的前面必須是字串開頭，或者是空白、括號、連字號等 (不能是英文字母)
-            // (?![a-zA-Z#b]) : 代表 Key 的後面不能緊跟著其他字母或升降記號 (這樣搜 C 就不會跑出 Cm 或 C#)
+            // 使用「字界 \b」搭配「前後非英文字母」的邏輯
+            // 這會確保搜 C 時：
+            // ✅ 中：Key C, (C), C major
+            // ❌ 誤：docx, chord, chart, Eric (因為 c 前後有字母)
             const keyRegex = new RegExp(`(^|[^a-zA-Z])${escapedKey}(?![a-zA-Z#b])`, 'i');
             
-            // 測試檔名是否符合這個嚴格的規則
-            keyMatch = keyRegex.test(item.n);
+            // 重要：我們只在「去掉副檔名」後的名稱裡找 Key
+            keyMatch = keyRegex.test(fileNameWithoutExt);
         }
         
         return nameMatch && keyMatch;
