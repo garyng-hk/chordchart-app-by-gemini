@@ -5,8 +5,8 @@
 let ALL_SCORES = [];
 
 // 1. 設定區：請將 GAS 執行後產生的那串 ID 貼在這裡
-const JSON_FILE_ID = '你的_scores_json_固定ID'; 
-const API_KEY = '你的_Google_Drive_API_KEY'; 
+const JSON_FILE_ID = '1ygPQgAzfVUTK77_SEnz3dnbjJ6tH4lXw'; 
+const API_KEY = 'AIzaSyDMjNzzDtquOzE-WGUQ-X01wWEOQq5lUKE'; 
 
 // 2. 初始化：從 Google Drive 讀取索引
 window.onload = async () => {
