@@ -1,50 +1,34 @@
 /**
- * YLGC Chordchart App - 最終穩定版 (GitHub Index 方案)
- * 邏輯：從 GitHub 讀取 scores.json 清單，從 Google Drive 預覽檔案
+ * YLGC Chordchart App - Final Stable Build
  */
 
 let ALL_SCORES = [];
 
-// 1. 頁面初始化：讀取索引檔
+// 1. 初始化：載入 GitHub 上的索引檔
 window.onload = async () => {
     const loadingDiv = document.getElementById('loading');
-    if (!loadingDiv) return;
-    
-    loadingDiv.classList.remove('hidden');
-    loadingDiv.innerText = "正在同步樂譜清單...";
+    if (loadingDiv) loadingDiv.classList.remove('hidden');
 
-    // 使用時間戳記防止 GitHub Pages 讀到舊快取
-    const url = `./scores.json?t=${new Date().getTime()}`; 
+    // 加上時間戳記避免 GitHub Pages 快取
+    const url = `./scores.json?v=${new Date().getTime()}`; 
     
     try {
         const response = await fetch(url);
+        if (!response.ok) throw new Error('無法讀取 scores.json');
         
-        if (!response.ok) {
-            throw new Error(`找不到索引檔 (HTTP ${response.status})`);
-        }
-
-        let textData = await response.text();
+        const textData = await response.text();
+        // 清理隱形字元並解析
+        ALL_SCORES = JSON.parse(textData.replace(/^\uFEFF/, "").trim());
         
-        // 清理隱形字元 (BOM) 與前後空白
-        textData = textData.replace(/^\uFEFF/, "").trim();
-        
-        try {
-            // 解析 JSON
-            ALL_SCORES = JSON.parse(textData);
-            loadingDiv.classList.add('hidden');
-            console.log("✅ 成功同步：" + ALL_SCORES.length + " 首樂譜");
-        } catch (jsonErr) {
-            console.error("❌ JSON 解析錯誤:", jsonErr);
-            loadingDiv.innerText = "資料格式錯誤，請檢查 scores.json 內容。";
-        }
-
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+        console.log("✅ 成功同步：" + ALL_SCORES.length + " 首樂譜");
     } catch (e) {
-        loadingDiv.innerText = `讀取失敗: ${e.message}`;
-        console.error("❌ Fetch 錯誤:", e);
+        if (loadingDiv) loadingDiv.innerText = "同步失敗，請重新整理網頁。";
+        console.error("❌ 載入錯誤:", e);
     }
 };
 
-// 2. 搜尋功能
+// 2. 搜尋邏輯
 function searchScores() {
     const songName = document.getElementById('songName').value.trim().toLowerCase();
     const songKey = document.getElementById('songKey').value.trim().toUpperCase();
@@ -58,10 +42,9 @@ function searchScores() {
         return;
     }
 
-    // 在本地數據中進行快速篩選 (n 為檔名, id 為雲端 ID)
+    // 在本地數據中篩選
     const filtered = ALL_SCORES.filter(item => {
         const nameMatch = songName ? item.n.toLowerCase().includes(songName) : true;
-        // Key 搜尋通常也是檢查檔名中是否包含該字元 (例如: "Amazing Grace (G).pdf")
         const keyMatch = songKey ? item.n.toUpperCase().includes(songKey) : true;
         return nameMatch && keyMatch;
     });
@@ -71,12 +54,11 @@ function searchScores() {
         return;
     }
 
-    // 3. 渲染結果列表
+    // 渲染結果
     filtered.forEach(file => {
         const div = document.createElement('div');
         div.className = 'result-item';
         
-        // 根據副檔名顯示圖示
         let icon = '📄'; 
         if (file.t && file.t.includes('image')) icon = '🖼️';
         if (file.t && file.t.includes('document')) icon = '📝';
@@ -86,11 +68,44 @@ function searchScores() {
                 <span style="font-size:1.2em;">${icon}</span>
                 <span style="font-weight:500;">${file.n}</span>
             </div>
-            <span style="color:#4A90E2; font-size:0.9em;">點擊查看 ></span>
+            <span style="color:#4A90E2; font-size:0.9em; cursor:pointer;">點擊查看 ></span>
         `;
         
-        // 點擊觸發預覽 (傳入 ID 與 類型)
+        // 綁定點擊事件
         div.onclick = () => openPreview(file.id, file.t);
         resultsDiv.appendChild(div);
     });
+}
+
+// 3. 預覽視窗控制 (解決點擊沒反應的關鍵)
+function openPreview(fileId, mimeType) {
+    const modal = document.getElementById('previewModal');
+    const iframe = document.getElementById('previewFrame');
+    
+    if (!modal || !iframe) return;
+
+    // 先顯示載入中（可選）
+    iframe.src = '';
+
+    // 決定預覽連結
+    let previewUrl = "";
+    if (mimeType && mimeType.includes('document')) {
+        previewUrl = `https://docs.google.com/document/d/${fileId}/preview`;
+    } else {
+        previewUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+    }
+    
+    // 強制顯示 Modal 並載入內容
+    iframe.src = previewUrl;
+    modal.style.display = 'flex'; 
+    document.body.style.overflow = 'hidden'; // 禁止背景捲動
+}
+
+function closePreview() {
+    const modal = document.getElementById('previewModal');
+    const iframe = document.getElementById('previewFrame');
+    
+    if (modal) modal.style.display = 'none';
+    if (iframe) iframe.src = '';
+    document.body.style.overflow = 'auto'; // 恢復背景捲動
 }
