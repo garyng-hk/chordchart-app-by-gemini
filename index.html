@@ -1,45 +1,72 @@
 <!DOCTYPE html>
-<html lang="zh-HK">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YLGC 樂譜搜尋系統</title>
-    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="style.css">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="YLGC 樂譜">
+    <style>
+        /* 確保彈出視窗的樣式正確 */
+        #previewModal {
+            display: none; /* 預設隱藏 */
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            position: relative;
+            width: 95%; height: 90%;
+            max-width: 1000px;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .close-btn {
+            position: absolute;
+            top: 10px; right: 10px;
+            padding: 8px 16px;
+            background: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 10001;
+        }
+        .hidden { display: none !important; }
+    </style>
 </head>
 <body>
     <div class="container">
         <h1>YLGC 樂譜搜尋系統</h1>
         
         <div class="search-box">
-            <input type="text" id="songName" placeholder="歌名 (例如: 奇異恩典)">
-            <input type="text" id="songKey" placeholder="KEY / 調性 (例如: C)">
+            <input type="text" id="songName" placeholder="搜尋歌名 (例如：祢)">
+            <input type="text" id="songKey" placeholder="KEY / 調性 (例如：C)">
             <input type="text" id="lyrics" placeholder="歌詞片段 (搜尋檔案內文)">
             <button onclick="searchScores()">搜尋樂譜</button>
         </div>
 
-        <div id="loading" class="hidden">搜尋中，請稍候...</div>
-        <div id="results"></div>
+        <div id="loading" class="hidden" style="text-align:center; padding:20px; color:#4A90E2;">
+            正在同步最新樂譜清單...
+        </div>
+
+        <div id="results">
+            </div>
     </div>
 
-    <div id="previewModal" class="modal hidden">
+    <div id="previewModal">
         <div class="modal-content">
-            <button class="close-btn" onclick="closePreview()">關閉</button>
-            <iframe id="previewFrame" src="" frameborder="0" allowfullscreen></iframe>
+            <button class="close-btn" onclick="closePreview()">關閉 [X]</button>
+            <iframe id="previewFrame" src="" width="100%" height="100%" frameborder="0"></iframe>
         </div>
     </div>
 
     <script src="app.js"></script>
-    <script>
-        // 註冊 Service Worker 讓網頁可以安裝成 App
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
-        }
-    </script>
-<script src="data.js"></script>
-<script src="app.js"></script>
 </body>
 </html>
