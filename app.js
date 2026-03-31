@@ -9,8 +9,8 @@ window.onload = async () => {
     if (loadingDiv) loadingDiv.classList.remove('hidden');
 
     // 1. 指向 Google Drive 上的 scores.json 檔案 ID
-    const JSON_FILE_ID = '你的_scores.json_檔案ID'; 
-    const API_KEY = '你的_API_KEY'; 
+    const JSON_FILE_ID = '1fmo9JxGeG5XxlfvXLOXOiHkh-oNoxYcH0Qf72GifhPHRhmW9MnnWeasR'; 
+    const API_KEY = 'AIzaSyDMjNzzDtquOzE-WGUQ-X01wWEOQq5lUKE'; 
 
     // 2. 使用 Google API 的媒體讀取網址，並加上時間戳記防止快取
     const url = `https://www.googleapis.com/drive/v3/files/${JSON_FILE_ID}?alt=media&key=${API_KEY}&t=${new Date().getTime()}`;
@@ -29,7 +29,6 @@ window.onload = async () => {
         console.error(e);
     }
 };
-
 function searchScores() {
     const songName = document.getElementById('songName').value.trim().toLowerCase();
     const songKey = document.getElementById('songKey').value.trim().toUpperCase();
@@ -42,13 +41,28 @@ function searchScores() {
         alert('請輸入搜尋條件');
         return;
     }
-
+// 在本地數據中進行篩選
     const filtered = ALL_SCORES.filter(item => {
+        // 1. 歌名比對：只要包含該字串就算符合 (寬鬆比對)
         const nameMatch = songName ? item.n.toLowerCase().includes(songName) : true;
-        const keyMatch = songKey ? item.n.toUpperCase().includes(songKey) : true;
+        
+        // 2. 調性 (Key) 比對：精準比對，避免 "C" 去匹配到 "docx" 或 "chord"
+        let keyMatch = true;
+        if (songKey) {
+            // 將輸入的 Key (如 C#) 的特殊符號做處理，避免語法錯誤
+            const escapedKey = songKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            
+            // 建立精準搜尋規則：
+            // (^|[^a-zA-Z])  : 代表 Key 的前面必須是字串開頭，或者是空白、括號、連字號等 (不能是英文字母)
+            // (?![a-zA-Z#b]) : 代表 Key 的後面不能緊跟著其他字母或升降記號 (這樣搜 C 就不會跑出 Cm 或 C#)
+            const keyRegex = new RegExp(`(^|[^a-zA-Z])${escapedKey}(?![a-zA-Z#b])`, 'i');
+            
+            // 測試檔名是否符合這個嚴格的規則
+            keyMatch = keyRegex.test(item.n);
+        }
+        
         return nameMatch && keyMatch;
     });
-
     if (filtered.length === 0) {
         resultsDiv.innerHTML = '<p style="text-align:center; padding:20px; color:#666;">找不到樂譜。</p>';
         return;
