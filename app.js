@@ -9,26 +9,36 @@ window.onload = async () => {
     const loadingDiv = document.getElementById('loading');
     if (loadingDiv) {
         loadingDiv.classList.remove('hidden');
-        loadingDiv.innerText = "正在同步最新樂譜清單...";
+        loadingDiv.innerText = "正在連線至雲端硬碟...";
     }
 
-    // 這裡使用相對路徑讀取 GitHub 上的 scores.json
-    const url = `./scores.json?v=${new Date().getTime()}`; 
+    // --- 請確保這兩項資料正確 ---
+    const JSON_FILE_ID = '1fmo9JxGeG5XxlfvXLOXOiHkh-oNoxYcH0Qf72GifhPHRhmW9MnnWeasR'; 
+    const API_KEY = 'AIzaSyDMjNzzDtquOzE-WGUQ-X01wWEOQq5lUKE'; 
+    // -----------------------
+
+    const url = `https://www.googleapis.com/drive/v3/files/${JSON_FILE_ID}?alt=media&key=${API_KEY}&v=${new Date().getTime()}`;
     
     try {
         const response = await fetch(url);
-        if (!response.ok) throw new Error(`找不到檔案 (HTTP ${response.status})`);
         
-        let textData = await response.text();
-        // 清理隱形字元並解析
+        if (!response.ok) {
+            // 如果失敗，直接把錯誤代碼抓出來顯示在螢幕上
+            const errorText = await response.text();
+            throw new Error(`代碼 ${response.status}: ${response.statusText}`);
+        }
+
+        const textData = await response.text();
         ALL_SCORES = JSON.parse(textData.replace(/^\uFEFF/, "").trim());
         
         if (loadingDiv) loadingDiv.classList.add('hidden');
-        console.log("✅ 成功同步：" + ALL_SCORES.length + " 首樂譜");
+        console.log("✅ 成功同步 " + ALL_SCORES.length + " 首樂譜");
+
     } catch (e) {
         if (loadingDiv) {
-            loadingDiv.innerText = "同步失敗：請確認 scores.json 是否在 GitHub 上。";
             loadingDiv.style.color = "red";
+            loadingDiv.innerText = `同步失敗原因：${e.message}`;
+            loadingDiv.innerHTML += `<br><small style="color:gray">請檢查 ID 或 API Key 是否正確</small>`;
         }
         console.error("❌ 載入錯誤:", e);
     }
