@@ -61,21 +61,25 @@ button:hover {
 }
 
 .result-item {
-    background: white;
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    cursor: pointer;
+    padding: 15px;
+    background: white;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    transition: 0.3s;
 }
 
 .result-item:hover {
-    background-color: #f0f8ff;
+    background: #f8f9fa;
 }
 
+/* 下載文字的樣式 */
+.result-item a:hover {
+    color: #2ecc71 !important;
+}
 .hidden {
     display: none !important;
 }
