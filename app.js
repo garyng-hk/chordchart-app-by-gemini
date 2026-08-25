@@ -5,8 +5,8 @@
 let ALL_SCORES = [];
 
 // 設定區
-const JSON_FILE_ID = '你的_scores_json_固定ID'; 
-const API_KEY = '你的_Google_Drive_API_KEY'; 
+const JSON_FILE_ID = '1ygPQgAzfVUTK77_SEnz3dnbjJ6tH4lXw'; 
+const API_KEY = 'AIzaSyDMjNzzDtquOzE-WGUQ-X01wWEOQq5lUKE'; 
 
 // 初始化：載入資料
 window.addEventListener('DOMContentLoaded', async () => {
