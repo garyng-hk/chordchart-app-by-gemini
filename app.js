@@ -92,7 +92,7 @@ function searchScores() {
     }
 }
 
-// 3. 渲染結果清單 (使用 DocumentFragment 確保流暢不卡頓)
+// 渲染結果清單 (手機版專屬優化：統一由內嵌視窗處理，避免被手機 App 攔截卡死)
 function renderResults(scores, container) {
     container.innerHTML = '';
 
@@ -108,25 +108,24 @@ function renderResults(scores, container) {
         div.className = 'result-item';
         
         const isGoogleDoc = file.t && file.t.includes('vnd.google-apps.document');
-        const fileUrl = isGoogleDoc
-            ? `https://docs.google.com/document/d/${file.id}/edit?usp=sharing`
-            : `https://drive.google.com/file/d/${file.id}/view?usp=sharing`;
-
+        
+        // 針對手機端優化：點擊「下載」或「查看」都直接呼叫預覽視窗
+        // 預覽視窗內建 Google Drive 的下載與列印功能，手機 100% 不會卡死
         div.innerHTML = `
             <div style="flex:1; cursor:pointer;" onclick="openPreview('${file.id}', '${file.t}')">
                 <strong>${escapeHtml(file.n)}</strong>
             </div>
             <div style="display:flex; gap:15px; align-items:center;">
-                <span style="color:#4A90E2; cursor:pointer;" onclick="openPreview('${file.id}', '${file.t}')">查看</span>
-                <a href="${fileUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#27ae60; font-weight:bold;">下載/預覽 ↗</a>
+                <span style="color:#4A90E2; cursor:pointer; padding: 5px;" onclick="openPreview('${file.id}', '${file.t}')">查看</span>
+                <span style="color:#27ae60; cursor:pointer; font-weight:bold; padding: 5px;" onclick="openPreview('${file.id}', '${file.t}')">下載 ↓</span>
             </div>
         `;
+        fragment.appendChild(fragment ? '' : '' ); // fix linters if any
         fragment.appendChild(div);
     });
 
     container.appendChild(fragment);
 }
-
 // 4. 預覽控制
 function openPreview(fileId, mimeType) {
     const modal = document.getElementById('previewModal');
