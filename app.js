@@ -111,18 +111,6 @@ function renderResults(scores, container) {
 
     container.appendChild(fragment);
 }
-        div.innerHTML = `
-            <div style="flex:1; cursor:pointer;" onclick="openPreview('${file.id}', '${file.t}')">
-                <strong>${file.n}</strong>
-            </div>
-            <div style="display:flex; gap:15px;">
-                <span style="color:#4A90E2; cursor:pointer;" onclick="openPreview('${file.id}', '${file.t}')">查看</span>
-                <a href="${downloadUrl}" target="_blank" style="text-decoration:none; color:#27ae60; font-weight:bold;">下載 ↓</a>
-            </div>
-        `;
-        resultsDiv.appendChild(div);
-    });
-}
 
 // 4. 預覽控制 (維持不變)
 function openPreview(fileId, mimeType) {
