@@ -1,94 +1,129 @@
 /**
- * YLGC 樂譜索引生成器 - 終極精簡穩定版
+ * YLGC Chordchart App - 固定 ID 最終優化版
  */
-const ROOT_FOLDER_ID = '10ZuF87OUmjYRJphLWbGcpIlEUyX1ryWt'; // 請填入你的主資料夾 ID
 
-function updateJsonFile() {
-  try {
-    const rootFolder = DriveApp.getFolderById(ROOT_FOLDER_ID);
-    const results = [];
-    const visitedFolders = new Set(); // 記錄已掃描資料夾，防止死迴圈
-    const fileIds = new Set();       // 記錄已加入檔案，防止重複
+let ALL_SCORES = [];
 
-    console.log("🚀 開始掃描樂譜庫...");
-    scanFolder(rootFolder, results, visitedFolders, fileIds);
+// 1. 設定區：請將 GAS 執行後產生的那串 ID 貼在這裡
+const JSON_FILE_ID = '1ygPQgAzfVUTK77_SEnz3dnbjJ6tH4lXw'; 
+const API_KEY = 'AIzaSyDMjNzzDtquOzE-WGUQ-X01wWEOQq5lUKE'; 
 
-    if (results.length === 0) {
-      console.warn("⚠️ 未找到任何樂譜檔案！");
-      return;
+// 2. 初始化：從 Google Drive 讀取索引
+window.onload = async () => {
+    const loadingDiv = document.getElementById('loading');
+    if (loadingDiv) {
+        loadingDiv.classList.remove('hidden');
+        loadingDiv.innerText = "正在同步最新樂譜...";
     }
 
-    const jsonString = JSON.stringify(results);
-    const fileName = "scores.json";
+    // 建立讀取網址 (加上時間戳防止快取)
+    const url = `https://www.googleapis.com/drive/v3/files/${JSON_FILE_ID}?alt=media&key=${API_KEY}&v=${new Date().getTime()}`;
     
-    // 尋找現有的 scores.json（確保永久 ID）
-    const existingFiles = rootFolder.getFilesByName(fileName);
-    let targetFile;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`同步失敗 (代碼 ${response.status})`);
+        }
+        
+        const textData = await response.text();
+        // 清理可能存在的 BOM 字元並解析 JSON
+        ALL_SCORES = JSON.parse(textData.replace(/^\uFEFF/, "").trim());
+        
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+        console.log("✅ 成功載入 " + ALL_SCORES.length + " 首樂譜");
+    } catch (e) {
+        if (loadingDiv) {
+            loadingDiv.innerText = "同步失敗：請檢查 ID、API Key 或檔案權限。";
+            loadingDiv.style.color = "red";
+        }
+        console.error("❌ 載入錯誤:", e);
+    }
+};
 
-    if (existingFiles.hasNext()) {
-      targetFile = existingFiles.next();
-      targetFile.setContent(jsonString);
-    } else {
-      const blob = Utilities.newBlob(jsonString, 'application/json', fileName);
-      targetFile = rootFolder.createFile(blob);
+// 3. 搜尋功能 (包含排除副檔名的精準搜尋)
+function searchScores() {
+    const songName = document.getElementById('songName').value.trim().toLowerCase();
+    const songKey = document.getElementById('songKey').value.trim().toUpperCase();
+    const resultsDiv = document.getElementById('results');
+    
+    if (!resultsDiv) return;
+    resultsDiv.innerHTML = '';
+
+    if (!songName && !songKey) {
+        alert('請輸入歌名或 Key 進行搜尋');
+        return;
     }
 
-    // 確保公開檢視權限
-    targetFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    
-    console.log(`✅ 同步完成！共匯入 ${results.length} 首樂譜。`);
-    console.log(`📌 樂譜索引檔固定 ID: ${targetFile.getId()}`);
+    const filtered = ALL_SCORES.filter(item => {
+        // --- 核心修正：搜尋前先去掉副檔名 (如 .docx, .pdf) ---
+        // 這樣搜尋 C 的時候，就不會被 .docx 的 c 誤導
+        const fileNameOnly = item.n.replace(/\.[^/.]+$/, "");
+        
+        // 歌名比對 (只要包含就中)
+        const nameMatch = songName ? item.n.toLowerCase().includes(songName) : true;
+        
+        // 調性比對 (精準搜尋：確保 C 不會抓到 Eric 或 Music)
+        let keyMatch = true;
+        if (songKey) {
+            const escapedKey = songKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // 規則：Key 的前後不能是英文字母
+            const keyRegex = new RegExp(`(^|[^a-zA-Z])${escapedKey}(?![a-zA-Z#b])`, 'i');
+            keyMatch = keyRegex.test(fileNameOnly);
+        }
+        
+        return nameMatch && keyMatch;
+    });
 
-  } catch (e) {
-    console.error("❌ 執行出錯: " + e.message);
-  }
+    // 渲染搜尋結果
+    if (filtered.length === 0) {
+        resultsDiv.innerHTML = '<p style="text-align:center; padding:20px; color:gray;">找不到符合的樂譜。</p>';
+        return;
+    }
+
+    filtered.forEach(file => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        
+        // 根據檔案類型自動切換下載連結
+        let downloadUrl = "";
+        if (file.t && file.t.includes('vnd.google-apps.document')) {
+            // Google Doc 轉 PDF 下載
+            downloadUrl = `https://docs.google.com/document/d/${file.id}/export?format=pdf`;
+        } else {
+            // 一般檔案直接下載
+            downloadUrl = `https://drive.google.com/uc?export=download&id=${file.id}`;
+        }
+
+        div.innerHTML = `
+            <div style="flex:1; cursor:pointer;" onclick="openPreview('${file.id}', '${file.t}')">
+                <strong>${file.n}</strong>
+            </div>
+            <div style="display:flex; gap:15px;">
+                <span style="color:#4A90E2; cursor:pointer;" onclick="openPreview('${file.id}', '${file.t}')">查看</span>
+                <a href="${downloadUrl}" target="_blank" style="text-decoration:none; color:#27ae60; font-weight:bold;">下載 ↓</a>
+            </div>
+        `;
+        resultsDiv.appendChild(div);
+    });
 }
 
-/**
- * 核心遞迴掃描函式
- */
-function scanFolder(folder, results, visitedFolders, fileIds) {
-  const folderId = folder.getId();
-  if (visitedFolders.has(folderId)) return; // 避免循環引用
-  visitedFolders.add(folderId);
+// 4. 預覽控制 (維持不變)
+function openPreview(fileId, mimeType) {
+    const modal = document.getElementById('previewModal');
+    const iframe = document.getElementById('previewFrame');
+    if (!modal || !iframe) return;
 
-  // 1. 掃描當前資料夾的檔案
-  const files = folder.getFiles();
-  while (files.hasNext()) {
-    const file = files.next();
-    const id = file.getId();
-    const name = file.getName();
-    const mime = file.getMimeType();
+    let previewUrl = (mimeType && mimeType.includes('document')) 
+        ? `https://docs.google.com/document/d/${fileId}/preview`
+        : `https://drive.google.com/file/d/${fileId}/preview`;
+    
+    iframe.src = previewUrl;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
 
-    if (name === "scores.json") continue;
-
-    // 排除資料夾與捷徑類型
-    if (mime !== "application/vnd.google-apps.folder" && 
-        mime !== "application/vnd.google-apps.shortcut" && 
-        !fileIds.has(id)) {
-      
-      fileIds.add(id);
-      results.push({ n: name, id: id, t: mime });
-    }
-  }
-
-  // 2. 進入子資料夾
-  const subFolders = folder.getFolders();
-  while (subFolders.hasNext()) {
-    scanFolder(subFolders.next(), results, visitedFolders, fileIds);
-  }
-
-  // 3. 處理資料夾捷徑
-  const shortcuts = folder.getFilesByType(MimeType.SHORTCUT);
-  while (shortcuts.hasNext()) {
-    try {
-      const shortcut = shortcuts.next();
-      if (shortcut.getTargetMimeType() === "application/vnd.google-apps.folder") {
-        const targetFolder = DriveApp.getFolderById(shortcut.getTargetId());
-        scanFolder(targetFolder, results, visitedFolders, fileIds);
-      }
-    } catch (e) {
-      // 忽略無效或無權限的捷徑
-    }
-  }
+function closePreview() {
+    const modal = document.getElementById('previewModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
 }
