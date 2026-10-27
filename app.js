@@ -1,80 +1,98 @@
 /**
- * YLGC Chordchart App - 固定 ID 最終優化版
+ * YLGC Chordchart App - 防卡死穩定版
  */
 
 let ALL_SCORES = [];
+let isSearching = false; // 防連點保護鎖
 
-// 1. 設定區：請將 GAS 執行後產生的那串 ID 貼在這裡
+// 1. 設定區：請確保填入正確的 ID 與 API Key
 const JSON_FILE_ID = '1ygPQgAzfVUTK77_SEnz3dnbjJ6tH4lXw'; 
 const API_KEY = 'AIzaSyDMjNzzDtquOzE-WGUQ-X01wWEOQq5lUKE'; 
 
-// 2. 初始化：從 Google Drive 讀取索引
-window.onload = async () => {
+// 初始化：載入資料
+window.addEventListener('DOMContentLoaded', () => {
+    loadScores();
+});
+
+async function loadScores() {
     const loadingDiv = document.getElementById('loading');
     if (loadingDiv) {
         loadingDiv.classList.remove('hidden');
         loadingDiv.innerText = "正在同步最新樂譜...";
     }
 
-    // 建立讀取網址 (加上時間戳防止快取)
-    const url = `https://www.googleapis.com/drive/v3/files/${JSON_FILE_ID}?alt=media&key=${API_KEY}&v=${new Date().getTime()}`;
+    const url = `https://www.googleapis.com/drive/v3/files/${JSON_FILE_ID}?alt=media&key=${API_KEY}&t=${Date.now()}`;
     
     try {
         const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`同步失敗 (代碼 ${response.status})`);
-        }
+        if (!response.ok) throw new Error(`HTTP 錯誤: ${response.status}`);
         
         const textData = await response.text();
-        // 清理可能存在的 BOM 字元並解析 JSON
-        ALL_SCORES = JSON.parse(textData.replace(/^\uFEFF/, "").trim());
+        const cleanedText = textData.replace(/^\uFEFF/, "").trim();
+        
+        ALL_SCORES = JSON.parse(cleanedText);
+        
+        if (!Array.isArray(ALL_SCORES)) {
+            throw new Error("JSON 格式不正確，應為陣列");
+        }
         
         if (loadingDiv) loadingDiv.classList.add('hidden');
-        console.log("✅ 成功載入 " + ALL_SCORES.length + " 首樂譜");
+        console.log(`✅ 成功同步 ${ALL_SCORES.length} 首樂譜`);
     } catch (e) {
         if (loadingDiv) {
-            loadingDiv.innerText = "同步失敗：請檢查 ID、API Key 或檔案權限。";
             loadingDiv.style.color = "red";
+            loadingDiv.innerText = "同步失敗，請檢查 ID 或 API Key。";
         }
-        console.error("❌ 載入錯誤:", e);
+        console.error("載入失敗:", e);
     }
-};
+}
 
-// 3. 搜尋功能 (包含排除副檔名的精準搜尋)
+// 2. 搜尋核心 (加入防連點保護)
 function searchScores() {
-    const songName = document.getElementById('songName').value.trim().toLowerCase();
-    const songKey = document.getElementById('songKey').value.trim().toUpperCase();
-    const resultsDiv = document.getElementById('results');
-    
-    if (!resultsDiv) return;
-    resultsDiv.innerHTML = '';
+    if (isSearching) return; // 如果正在處理，直接忽略避免卡死
+    isSearching = true;
 
-    if (!songName && !songKey) {
-        alert('請輸入歌名或 Key 進行搜尋');
-        return;
-    }
+    try {
+        const songNameInput = document.getElementById('songName');
+        const songKeyInput = document.getElementById('songKey');
+        const resultsDiv = document.getElementById('results');
+        
+        if (!resultsDiv) return;
+        
+        const songName = songNameInput ? songNameInput.value.trim().toLowerCase() : '';
+        const songKey = songKeyInput ? songKeyInput.value.trim().toUpperCase() : '';
 
-    const filtered = ALL_SCORES.filter(item => {
-        // --- 核心修正：搜尋前先去掉副檔名 (如 .docx, .pdf) ---
-        // 這樣搜尋 C 的時候，就不會被 .docx 的 c 誤導
-        const fileNameOnly = item.n.replace(/\.[^/.]+$/, "");
-        
-        // 歌名比對 (只要包含就中)
-        const nameMatch = songName ? item.n.toLowerCase().includes(songName) : true;
-        
-        // 調性比對 (精準搜尋：確保 C 不會抓到 Eric 或 Music)
-        let keyMatch = true;
+        if (!songName && !songKey) {
+            alert('請輸入歌名或 Key 進行搜尋');
+            isSearching = false;
+            return;
+        }
+
+        // 預先建構 Key 的正則表達式
+        let keyRegex = null;
         if (songKey) {
             const escapedKey = songKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            // 規則：Key 的前後不能是英文字母
-            const keyRegex = new RegExp(`(^|[^a-zA-Z])${escapedKey}(?![a-zA-Z#b])`, 'i');
-            keyMatch = keyRegex.test(fileNameOnly);
+            keyRegex = new RegExp(`(^|[^a-zA-Z])${escapedKey}(?![a-zA-Z#b])`, 'i');
         }
-        
-        return nameMatch && keyMatch;
-    });
 
-// 渲染結果清單 (修正下載與預覽邏輯)
+        // 過濾資料 (加上安全限制，避免大數據癱瘓)
+        const filtered = ALL_SCORES.filter(item => {
+            if (!item || !item.n) return false;
+            const fileNameOnly = item.n.replace(/\.[^/.]+$/, "");
+            const nameMatch = songName ? item.n.toLowerCase().includes(songName) : true;
+            const keyMatch = keyRegex ? keyRegex.test(fileNameOnly) : true;
+            return nameMatch && keyMatch;
+        });
+
+        renderResults(filtered, resultsDiv);
+    } catch (err) {
+        console.error("搜尋發生錯誤:", err);
+    } finally {
+        isSearching = false; // 解除防護鎖
+    }
+}
+
+// 3. 渲染結果清單 (使用 DocumentFragment 確保流暢不卡頓)
 function renderResults(scores, container) {
     container.innerHTML = '';
 
@@ -90,12 +108,9 @@ function renderResults(scores, container) {
         div.className = 'result-item';
         
         const isGoogleDoc = file.t && file.t.includes('vnd.google-apps.document');
-        
-        // --- 修正下載網址 ---
-        // Google Doc 匯出為 PDF，一般檔案使用 Google Drive 官方標準下載格式
-        const downloadUrl = isGoogleDoc
-            ? `https://docs.google.com/document/d/${file.id}/export?format=pdf`
-            : `https://drive.google.com/uc?export=download&confirm=t&id=${file.id}`;
+        const fileUrl = isGoogleDoc
+            ? `https://docs.google.com/document/d/${file.id}/edit?usp=sharing`
+            : `https://drive.google.com/file/d/${file.id}/view?usp=sharing`;
 
         div.innerHTML = `
             <div style="flex:1; cursor:pointer;" onclick="openPreview('${file.id}', '${file.t}')">
@@ -103,7 +118,7 @@ function renderResults(scores, container) {
             </div>
             <div style="display:flex; gap:15px; align-items:center;">
                 <span style="color:#4A90E2; cursor:pointer;" onclick="openPreview('${file.id}', '${file.t}')">查看</span>
-                <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#27ae60; font-weight:bold;">下載 ↓</a>
+                <a href="${fileUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#27ae60; font-weight:bold;">下載/預覽 ↗</a>
             </div>
         `;
         fragment.appendChild(div);
@@ -112,23 +127,33 @@ function renderResults(scores, container) {
     container.appendChild(fragment);
 }
 
-// 4. 預覽控制 (維持不變)
+// 4. 預覽控制
 function openPreview(fileId, mimeType) {
     const modal = document.getElementById('previewModal');
     const iframe = document.getElementById('previewFrame');
     if (!modal || !iframe) return;
 
-    let previewUrl = (mimeType && mimeType.includes('document')) 
+    const isGoogleDoc = mimeType && mimeType.includes('document');
+    iframe.src = isGoogleDoc 
         ? `https://docs.google.com/document/d/${fileId}/preview`
         : `https://drive.google.com/file/d/${fileId}/preview`;
     
-    iframe.src = previewUrl;
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 }
 
 function closePreview() {
     const modal = document.getElementById('previewModal');
+    const iframe = document.getElementById('previewFrame');
     if (modal) modal.style.display = 'none';
+    if (iframe) iframe.src = ''; 
     document.body.style.overflow = 'auto';
+}
+
+// XSS 防護
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"']/g, match => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[match]));
 }
