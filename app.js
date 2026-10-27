@@ -1,37 +1,94 @@
-// 渲染結果清單 (修正下載與預覽邏輯)
-function renderResults(scores, container) {
-    container.innerHTML = '';
+/**
+ * YLGC 樂譜索引生成器 - 終極精簡穩定版
+ */
+const ROOT_FOLDER_ID = '10ZuF87OUmjYRJphLWbGcpIlEUyX1ryWt'; // 請填入你的主資料夾 ID
 
-    if (scores.length === 0) {
-        container.innerHTML = '<p style="text-align:center; padding:20px; color:gray;">找不到符合的樂譜。</p>';
-        return;
+function updateJsonFile() {
+  try {
+    const rootFolder = DriveApp.getFolderById(ROOT_FOLDER_ID);
+    const results = [];
+    const visitedFolders = new Set(); // 記錄已掃描資料夾，防止死迴圈
+    const fileIds = new Set();       // 記錄已加入檔案，防止重複
+
+    console.log("🚀 開始掃描樂譜庫...");
+    scanFolder(rootFolder, results, visitedFolders, fileIds);
+
+    if (results.length === 0) {
+      console.warn("⚠️ 未找到任何樂譜檔案！");
+      return;
     }
 
-    const fragment = document.createDocumentFragment();
+    const jsonString = JSON.stringify(results);
+    const fileName = "scores.json";
+    
+    // 尋找現有的 scores.json（確保永久 ID）
+    const existingFiles = rootFolder.getFilesByName(fileName);
+    let targetFile;
 
-    scores.forEach(file => {
-        const div = document.createElement('div');
-        div.className = 'result-item';
-        
-        const isGoogleDoc = file.t && file.t.includes('vnd.google-apps.document');
-        
-        // --- 修正下載網址 ---
-        // Google Doc 匯出為 PDF，一般檔案使用 Google Drive 官方標準下載格式
-        const downloadUrl = isGoogleDoc
-            ? `https://docs.google.com/document/d/${file.id}/export?format=pdf`
-            : `https://drive.google.com/uc?export=download&confirm=t&id=${file.id}`;
+    if (existingFiles.hasNext()) {
+      targetFile = existingFiles.next();
+      targetFile.setContent(jsonString);
+    } else {
+      const blob = Utilities.newBlob(jsonString, 'application/json', fileName);
+      targetFile = rootFolder.createFile(blob);
+    }
 
-        div.innerHTML = `
-            <div style="flex:1; cursor:pointer;" onclick="openPreview('${file.id}', '${file.t}')">
-                <strong>${escapeHtml(file.n)}</strong>
-            </div>
-            <div style="display:flex; gap:15px; align-items:center;">
-                <span style="color:#4A90E2; cursor:pointer;" onclick="openPreview('${file.id}', '${file.t}')">查看</span>
-                <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#27ae60; font-weight:bold;">下載 ↓</a>
-            </div>
-        `;
-        fragment.appendChild(div);
-    });
+    // 確保公開檢視權限
+    targetFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    console.log(`✅ 同步完成！共匯入 ${results.length} 首樂譜。`);
+    console.log(`📌 樂譜索引檔固定 ID: ${targetFile.getId()}`);
 
-    container.appendChild(fragment);
+  } catch (e) {
+    console.error("❌ 執行出錯: " + e.message);
+  }
+}
+
+/**
+ * 核心遞迴掃描函式
+ */
+function scanFolder(folder, results, visitedFolders, fileIds) {
+  const folderId = folder.getId();
+  if (visitedFolders.has(folderId)) return; // 避免循環引用
+  visitedFolders.add(folderId);
+
+  // 1. 掃描當前資料夾的檔案
+  const files = folder.getFiles();
+  while (files.hasNext()) {
+    const file = files.next();
+    const id = file.getId();
+    const name = file.getName();
+    const mime = file.getMimeType();
+
+    if (name === "scores.json") continue;
+
+    // 排除資料夾與捷徑類型
+    if (mime !== "application/vnd.google-apps.folder" && 
+        mime !== "application/vnd.google-apps.shortcut" && 
+        !fileIds.has(id)) {
+      
+      fileIds.add(id);
+      results.push({ n: name, id: id, t: mime });
+    }
+  }
+
+  // 2. 進入子資料夾
+  const subFolders = folder.getFolders();
+  while (subFolders.hasNext()) {
+    scanFolder(subFolders.next(), results, visitedFolders, fileIds);
+  }
+
+  // 3. 處理資料夾捷徑
+  const shortcuts = folder.getFilesByType(MimeType.SHORTCUT);
+  while (shortcuts.hasNext()) {
+    try {
+      const shortcut = shortcuts.next();
+      if (shortcut.getTargetMimeType() === "application/vnd.google-apps.folder") {
+        const targetFolder = DriveApp.getFolderById(shortcut.getTargetId());
+        scanFolder(targetFolder, results, visitedFolders, fileIds);
+      }
+    } catch (e) {
+      // 忽略無效或無權限的捷徑
+    }
+  }
 }
